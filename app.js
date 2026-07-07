@@ -399,3 +399,332 @@ document.addEventListener('DOMContentLoaded', () => {
   calc();
   buildQnA();
 });
+
+// ── BRD & User Stories state ──────────────────────────────────
+let brdContent = null;
+let storiesContent = null;
+let storiesChart = null;
+
+// ── File handling ─────────────────────────────────────────────
+function handleDrop(e, type) {
+  e.preventDefault();
+  document.getElementById(type + '-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file, type);
+}
+
+function handleFileSelect(e, type) {
+  const file = e.target.files[0];
+  if (file) processFile(file, type);
+}
+
+function processFile(file, type) {
+  if (!file.name.match(/\.(txt|md)$/i)) {
+    alert('Please upload a .txt or .md file.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const content = e.target.result;
+    if (type === 'brd') {
+      brdContent = content;
+      showFileInfo('brd', file.name, file.size, content);
+      analyseBRD(content, file.name);
+    } else {
+      storiesContent = content;
+      showFileInfo('stories', file.name, file.size, content);
+      analyseStories(content, file.name);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function showFileInfo(type, name, size, content) {
+  const info = g(type + '-file-info');
+  const kb = (size / 1024).toFixed(1);
+  const tokens = estimateTokens(content);
+  info.style.display = 'flex';
+  info.innerHTML = `
+    <i class="ti ti-file-check file-info-icon" aria-hidden="true"></i>
+    <div>
+      <div class="file-info-name">${escHtml(name)}</div>
+      <div class="file-info-size">${kb} KB &nbsp;·&nbsp; ~${fmtK(tokens)} tokens detected</div>
+    </div>
+    <i class="ti ti-x file-info-remove" aria-hidden="true" onclick="clearFile('${type}')" title="Remove file"></i>
+  `;
+}
+
+function clearFile(type) {
+  if (type === 'brd') {
+    brdContent = null;
+    g('brd-file').value = '';
+    g('brd-file-info').style.display = 'none';
+    g('brd-results').style.display = 'none';
+    g('brd-empty-state').style.display = 'block';
+  } else {
+    storiesContent = null;
+    g('stories-file').value = '';
+    g('stories-file-info').style.display = 'none';
+    g('stories-results').style.display = 'none';
+    g('stories-empty-state').style.display = 'block';
+    if (storiesChart) { storiesChart.destroy(); storiesChart = null; }
+  }
+}
+
+// ── Token estimation ──────────────────────────────────────────
+function estimateTokens(text) {
+  // ~4 chars per token average
+  return Math.round(text.length / 4);
+}
+
+// ── BRD Analysis ──────────────────────────────────────────────
+function analyseBRD(content, filename) {
+  const sections = detectSections(content);
+  const model = g('brd-model').value;
+  const storiesPerSection = parseInt(g('brd-stories-per-section').value) || 3;
+  const runs = parseInt(g('brd-runs').value) || 2;
+  renderBRDResults(sections, content, filename, model, storiesPerSection, runs);
+}
+
+function recalcBRD() {
+  if (!brdContent) return;
+  const filename = g('brd-file-info').querySelector('.file-info-name').textContent;
+  analyseBRD(brdContent, filename);
+}
+
+function detectSections(content) {
+  const lines = content.split('\n');
+  const sections = [];
+  let currentSection = null;
+  let currentLines = [];
+
+  const headingRe = /^(#{1,3}|[A-Z][A-Z\s]{2,}:?$|\d+\.\s+[A-Z])/;
+
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    if (headingRe.test(trimmed) && trimmed.length > 3 && trimmed.length < 100) {
+      if (currentSection && currentLines.length > 0) {
+        sections.push({ name: currentSection, content: currentLines.join('\n') });
+      }
+      currentSection = trimmed.replace(/^#+\s*/, '').replace(/:$/, '');
+      currentLines = [];
+    } else if (currentSection) {
+      currentLines.push(line);
+    } else {
+      currentSection = 'Introduction';
+      currentLines.push(line);
+    }
+  });
+
+  if (currentSection && currentLines.length > 0) {
+    sections.push({ name: currentSection, content: currentLines.join('\n') });
+  }
+
+  // Fallback: if no sections detected, treat whole doc as one section
+  if (sections.length === 0) {
+    sections.push({ name: 'Full Document', content: content });
+  }
+
+  return sections;
+}
+
+function renderBRDResults(sections, content, filename, model, storiesPerSection, runs) {
+  const p = PRICES[model];
+  const docTokens = estimateTokens(content);
+  const estStories = sections.length * storiesPerSection;
+
+  // Per story: doc tokens as shared context + story-specific tokens + output
+  const avgStoryInput = Math.round(docTokens / sections.length); // per section
+  const avgStoryOutput = 6000; // typical medium story output
+  const totalInput = (docTokens + avgStoryInput * estStories) * runs;
+  const totalOutput = avgStoryOutput * estStories * runs;
+
+  const inCost  = (totalInput  / 1e6) * p.in;
+  const outCost = (totalOutput / 1e6) * p.out;
+  const total   = inCost + outCost;
+  const cache   = ((totalInput * 0.1) / 1e6) * p.in + outCost;
+  const batch   = total * 0.5;
+  const both    = ((totalInput * 0.1) / 1e6) * p.in * 0.5 + outCost * 0.5;
+
+  g('brd-empty-state').style.display = 'none';
+  g('brd-results').style.display = 'block';
+
+  g('brd-doc-name').textContent = filename.replace(/\.(txt|md)$/i, '');
+  g('brd-total-cost').textContent = fmtCost(total);
+  g('brd-sections').textContent = sections.length;
+  g('brd-est-stories').textContent = estStories;
+  g('brd-doc-tokens').textContent = fmtK(docTokens);
+  g('brd-impl-tokens').textContent = fmtK(totalInput + totalOutput);
+  g('brd-cache').textContent = fmtCost(cache);
+  g('brd-batch').textContent = fmtCost(batch);
+  g('brd-both').textContent = fmtCost(both);
+
+  g('brd-breakdown').innerHTML =
+    `BRD document: <span>${fmtK(docTokens)} tokens detected</span><br>` +
+    `Estimated stories: <span>${estStories} (${sections.length} sections × ${storiesPerSection} stories)</span><br>` +
+    `Input cost: <span>${fmtK(totalInput)} tokens ÷ 1M × $${p.in} = ${fmtCost(inCost)}</span><br>` +
+    `Output cost: <span>${fmtK(totalOutput)} tokens ÷ 1M × $${p.out} = ${fmtCost(outCost)}</span><br>` +
+    `Total: <span>${fmtCost(inCost)} + ${fmtCost(outCost)} = ${fmtCost(total)}</span>`;
+
+  // Render sections list
+  const list = g('brd-sections-list');
+  list.innerHTML = sections.map(s => {
+    const st = estimateTokens(s.content);
+    const sc = ((st * runs / 1e6) * p.in) + ((avgStoryOutput * storiesPerSection * runs / 1e6) * p.out);
+    return `<div class="section-item">
+      <span class="section-item-name">${escHtml(s.name)}</span>
+      <span class="section-item-tokens">${fmtK(st)} tokens</span>
+      <span class="section-item-cost">${fmtCost(sc)}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── User Stories Analysis ─────────────────────────────────────
+function analyseStories(content, filename) {
+  const stories = parseStories(content);
+  const model = g('stories-model').value;
+  const codebaseTokens = parseInt(g('stories-codebase').value) || 20000;
+  const runs = parseInt(g('stories-runs').value) || 2;
+  renderStoriesResults(stories, filename, model, codebaseTokens, runs);
+}
+
+function recalcStories() {
+  if (!storiesContent) return;
+  const filename = g('stories-file-info').querySelector('.file-info-name').textContent;
+  analyseStories(storiesContent, filename);
+}
+
+function parseStories(content) {
+  const stories = [];
+  // Match common story patterns
+  const storyRe = /(?:^|\n)(?:#{1,3}\s*(?:Story|US|User Story)\s*[\d#:-]*[^\n]*|(?:ABTCB|US|ST|STORY)-\d+[^\n]*|\d+\.\s+(?:As a|Story:|User Story:)[^\n]*)/gi;
+  const matches = [...content.matchAll(storyRe)];
+
+  if (matches.length > 1) {
+    // Multiple stories found — split by match positions
+    matches.forEach((match, i) => {
+      const start = match.index;
+      const end = i + 1 < matches.length ? matches[i + 1].index : content.length;
+      const storyContent = content.slice(start, end).trim();
+      const title = match[0].trim().replace(/^#+\s*/, '').slice(0, 60);
+      stories.push({ title, content: storyContent });
+    });
+  } else {
+    // Try splitting by double newlines + numbered lines
+    const chunks = content.split(/\n\s*\n/).filter(c => c.trim().length > 30);
+    if (chunks.length > 1) {
+      chunks.forEach((chunk, i) => {
+        const firstLine = chunk.trim().split('\n')[0].slice(0, 60);
+        stories.push({ title: firstLine || `Story ${i + 1}`, content: chunk.trim() });
+      });
+    } else {
+      // Single block — treat as one story
+      const firstLine = content.trim().split('\n')[0].slice(0, 60);
+      stories.push({ title: firstLine || 'Story 1', content: content.trim() });
+    }
+  }
+
+  return stories.slice(0, 50); // cap at 50 stories
+}
+
+function renderStoriesResults(stories, filename, model, codebaseTokens, runs) {
+  const p = PRICES[model];
+
+  const storyData = stories.map(s => {
+    const storyTokens = estimateTokens(s.content);
+    const inputT = (storyTokens + codebaseTokens + 1500) * runs; // story + codebase + chat
+    const outputT = 6000 * runs; // typical output per story
+    const cost = ((inputT / 1e6) * p.in) + ((outputT / 1e6) * p.out);
+    const cache = ((inputT * 0.1 / 1e6) * p.in) + ((outputT / 1e6) * p.out);
+    return { ...s, storyTokens, inputT, outputT, cost, cache };
+  });
+
+  const totalCost   = storyData.reduce((a, s) => a + s.cost, 0);
+  const totalTokens = storyData.reduce((a, s) => a + s.inputT + s.outputT, 0);
+  const totalCache  = storyData.reduce((a, s) => a + s.cache, 0);
+  const batch       = totalCost * 0.5;
+  const both        = totalCache * 0.5;
+
+  g('stories-empty-state').style.display = 'none';
+  g('stories-results').style.display = 'block';
+
+  g('stories-doc-name').textContent = filename.replace(/\.(txt|md)$/i, '');
+  g('stories-total-cost').textContent = fmtCost(totalCost);
+  g('stories-count').textContent = stories.length;
+  g('stories-total-tokens').textContent = fmtK(totalTokens);
+  g('stories-avg').textContent = fmtCost(totalCost / stories.length);
+  g('stories-cache-total').textContent = fmtCost(totalCache);
+  g('stories-cache').textContent = fmtCost(totalCache);
+  g('stories-batch').textContent = fmtCost(batch);
+  g('stories-both').textContent = fmtCost(both);
+
+  g('stories-breakdown').innerHTML =
+    `Stories detected: <span>${stories.length}</span><br>` +
+    `Shared codebase: <span>${fmtK(codebaseTokens)} tokens per story</span><br>` +
+    `Total input cost: <span>${fmtCost(storyData.reduce((a,s) => a + (s.inputT/1e6)*p.in, 0))}</span><br>` +
+    `Total output cost: <span>${fmtCost(storyData.reduce((a,s) => a + (s.outputT/1e6)*p.out, 0))}</span><br>` +
+    `Total: <span>${fmtCost(totalCost)}</span>`;
+
+  // Table
+  const tbody = g('stories-table-body');
+  tbody.innerHTML = storyData.map((s, i) => `
+    <tr>
+      <td class="muted">${i + 1}</td>
+      <td style="font-size:12px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(s.title)}">${escHtml(s.title)}</td>
+      <td class="muted">${fmtK(s.inputT)}</td>
+      <td class="muted">${fmtK(s.outputT)}</td>
+      <td class="accent">${fmtCost(s.cost)}</td>
+      <td class="success">${fmtCost(s.cache)}</td>
+    </tr>
+  `).join('');
+
+  // Chart
+  const canvas = g('stories-chart');
+  if (storiesChart) { storiesChart.destroy(); storiesChart = null; }
+  if (storyData.length > 0) {
+    storiesChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: storyData.map((s, i) => s.title.slice(0, 18) || `Story ${i+1}`),
+        datasets: [
+          { label: 'Full cost', data: storyData.map(s => parseFloat(s.cost.toFixed(5))), backgroundColor: '#5340c8', borderRadius: 4 },
+          { label: 'With caching', data: storyData.map(s => parseFloat(s.cache.toFixed(5))), backgroundColor: '#3b6d11', borderRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { font: { size: 10 }, color: '#898781', maxRotation: 45 }, grid: { display: false } },
+          y: { ticks: { callback: v => '$' + v.toFixed(3), font: { size: 11 }, color: '#898781' }, grid: { color: 'rgba(0,0,0,0.05)' } }
+        }
+      }
+    });
+  }
+
+  // Store for sprint transfer
+  window._parsedStories = storyData;
+}
+
+function sendStoriesToSprint() {
+  if (!window._parsedStories || !window._parsedStories.length) return;
+  const model = g('stories-model').value;
+  window._parsedStories.forEach((s, i) => {
+    sprintStories.push({
+      id: s.title.slice(0, 20) || `Story ${i + 1}`,
+      size: 'custom',
+      model,
+      inT: s.inputT,
+      outT: s.outputT,
+      cost: s.cost,
+      cache: s.cache
+    });
+  });
+  updateNavBadge();
+  renderSprint();
+  showPage('sprint', null);
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  // activate sprint nav item
+  document.querySelectorAll('.nav-item')[4].classList.add('active');
+}

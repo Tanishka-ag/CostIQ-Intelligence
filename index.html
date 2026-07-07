@@ -36,6 +36,16 @@
           <i class="ti ti-calculator" aria-hidden="true"></i>
           <span>Story calculator</span>
         </button>
+        <button class="nav-item" onclick="showPage('brd', this)">
+          <i class="ti ti-file-text" aria-hidden="true"></i>
+          <span>BRD analyser</span>
+          <span class="nav-pill new-pill">New</span>
+        </button>
+        <button class="nav-item" onclick="showPage('stories', this)">
+          <i class="ti ti-files" aria-hidden="true"></i>
+          <span>User stories</span>
+          <span class="nav-pill new-pill">New</span>
+        </button>
         <button class="nav-item" onclick="showPage('sprint', this)">
           <i class="ti ti-list-check" aria-hidden="true"></i>
           <span>Sprint tracker</span>
@@ -346,6 +356,238 @@
         </div>
       </div>
 
+      <!-- Page: BRD Analyser -->
+      <div id="page-brd" class="page">
+        <div class="page-header hero-header">
+          <div class="hero-badge blue-badge"><i class="ti ti-file-text" aria-hidden="true"></i> Pre-Calculator</div>
+          <h1>BRD analyser</h1>
+          <p class="page-sub">Upload your Business Requirements Document — CostIQ will read it, estimate the total tokens, and pre-calculate the cost to implement the entire project with Claude Code.</p>
+        </div>
+
+        <div class="two-col">
+          <div class="col-left">
+            <div class="card">
+              <div class="card-title"><i class="ti ti-upload" aria-hidden="true"></i> Upload BRD document</div>
+              <div class="upload-zone" id="brd-zone" onclick="document.getElementById('brd-file').click()" ondrop="handleDrop(event,'brd')" ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+                <div class="upload-icon"><i class="ti ti-file-text" aria-hidden="true"></i></div>
+                <div class="upload-title">Drag &amp; drop your BRD here</div>
+                <div class="upload-sub">or click to browse</div>
+                <div class="upload-formats">Accepts .txt or .md files</div>
+              </div>
+              <input type="file" id="brd-file" accept=".txt,.md" style="display:none" onchange="handleFileSelect(event,'brd')">
+              <div id="brd-file-info" class="file-info" style="display:none"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-title"><i class="ti ti-adjustments" aria-hidden="true"></i> Settings</div>
+              <div class="field">
+                <label class="field-label" for="brd-model">Claude model</label>
+                <select id="brd-model" onchange="recalcBRD()">
+                  <option value="haiku">Haiku 4.5 — $1 / $5 per 1M</option>
+                  <option value="sonnet" selected>Sonnet 4.6 — $3 / $15 per 1M</option>
+                  <option value="opus">Opus 4.8 — $5 / $25 per 1M</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label" for="brd-stories-per-section">Estimated stories per BRD section</label>
+                <div class="input-row">
+                  <input type="number" id="brd-stories-per-section" value="3" min="1" max="20" oninput="recalcBRD()">
+                  <span class="input-unit">stories</span>
+                </div>
+                <p class="field-hint"><i class="ti ti-bulb" aria-hidden="true"></i> Adjust based on your project complexity. Typical BRD sections generate 2–5 stories each.</p>
+              </div>
+              <div class="field">
+                <label class="field-label" for="brd-runs">Implementation runs per story</label>
+                <div class="input-row">
+                  <input type="number" id="brd-runs" value="2" min="1" max="10" oninput="recalcBRD()">
+                  <span class="input-unit">runs</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-right">
+            <div id="brd-empty-state" class="card empty-card">
+              <div class="empty-card-icon"><i class="ti ti-file-upload" aria-hidden="true"></i></div>
+              <div class="empty-card-title">No document uploaded yet</div>
+              <div class="empty-card-sub">Upload a BRD document on the left to see the full cost breakdown for your project.</div>
+            </div>
+
+            <div id="brd-results" style="display:none">
+              <div class="card result-card">
+                <div class="result-header">
+                  <div class="result-label" id="brd-doc-name">BRD Project</div>
+                  <div class="result-amount" id="brd-total-cost">$0.000</div>
+                  <div class="result-sub">estimated total project cost</div>
+                </div>
+                <div class="metrics-grid">
+                  <div class="metric purple"><div class="metric-label">BRD sections</div><div class="metric-val" id="brd-sections">—</div></div>
+                  <div class="metric blue"><div class="metric-label">Est. user stories</div><div class="metric-val" id="brd-est-stories">—</div></div>
+                  <div class="metric"><div class="metric-label">Total BRD tokens</div><div class="metric-val" id="brd-doc-tokens">—</div></div>
+                  <div class="metric"><div class="metric-label">Total impl. tokens</div><div class="metric-val" id="brd-impl-tokens">—</div></div>
+                </div>
+                <div class="breakdown-box" id="brd-breakdown"></div>
+              </div>
+
+              <div class="card savings-card">
+                <div class="card-title"><i class="ti ti-piggy-bank" aria-hidden="true"></i> Project savings</div>
+                <div class="savings-list">
+                  <div class="saving-row">
+                    <div class="saving-icon purple-icon"><i class="ti ti-database" aria-hidden="true"></i></div>
+                    <div><div class="saving-name">With prompt caching</div><div class="saving-desc">90% off repeated BRD context across all stories</div></div>
+                    <div class="saving-val" id="brd-cache">—</div>
+                  </div>
+                  <div class="saving-row">
+                    <div class="saving-icon blue-icon"><i class="ti ti-clock" aria-hidden="true"></i></div>
+                    <div><div class="saving-name">With Batch API</div><div class="saving-desc">50% off — run stories overnight</div></div>
+                    <div class="saving-val" id="brd-batch">—</div>
+                  </div>
+                  <div class="saving-row last">
+                    <div class="saving-icon green-icon"><i class="ti ti-stars" aria-hidden="true"></i></div>
+                    <div><div class="saving-name">Both combined</div><div class="saving-desc">Maximum saving for the whole project</div></div>
+                    <div class="saving-val best" id="brd-both">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title"><i class="ti ti-list" aria-hidden="true"></i> Detected sections</div>
+                <div id="brd-sections-list" class="sections-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page: User Stories -->
+      <div id="page-stories" class="page">
+        <div class="page-header hero-header">
+          <div class="hero-badge green-badge"><i class="ti ti-files" aria-hidden="true"></i> Pre-Calculator</div>
+          <h1>User stories analyser</h1>
+          <p class="page-sub">Upload your user stories document — CostIQ will parse each story, estimate tokens and cost individually, and give you a full project cost breakdown before writing a single line of code.</p>
+        </div>
+
+        <div class="two-col">
+          <div class="col-left">
+            <div class="card">
+              <div class="card-title"><i class="ti ti-upload" aria-hidden="true"></i> Upload user stories document</div>
+              <div class="upload-zone" id="stories-zone" onclick="document.getElementById('stories-file').click()" ondrop="handleDrop(event,'stories')" ondragover="event.preventDefault()" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+                <div class="upload-icon"><i class="ti ti-files" aria-hidden="true"></i></div>
+                <div class="upload-title">Drag &amp; drop your user stories here</div>
+                <div class="upload-sub">or click to browse</div>
+                <div class="upload-formats">Accepts .txt or .md files</div>
+              </div>
+              <input type="file" id="stories-file" accept=".txt,.md" style="display:none" onchange="handleFileSelect(event,'stories')">
+              <div id="stories-file-info" class="file-info" style="display:none"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-title"><i class="ti ti-adjustments" aria-hidden="true"></i> Settings</div>
+              <div class="field">
+                <label class="field-label" for="stories-model">Claude model</label>
+                <select id="stories-model" onchange="recalcStories()">
+                  <option value="haiku">Haiku 4.5 — $1 / $5 per 1M</option>
+                  <option value="sonnet" selected>Sonnet 4.6 — $3 / $15 per 1M</option>
+                  <option value="opus">Opus 4.8 — $5 / $25 per 1M</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label" for="stories-codebase">Codebase size (files Claude will read)</label>
+                <div class="input-row">
+                  <input type="number" id="stories-codebase" value="20000" min="0" step="1000" oninput="recalcStories()">
+                  <span class="input-unit">tokens</span>
+                </div>
+                <p class="field-hint"><i class="ti ti-bulb" aria-hidden="true"></i> Shared across all stories. 5 files ≈ 15,000 tokens. 10 files ≈ 30,000 tokens.</p>
+              </div>
+              <div class="field">
+                <label class="field-label" for="stories-runs">Implementation runs per story</label>
+                <div class="input-row">
+                  <input type="number" id="stories-runs" value="2" min="1" max="10" oninput="recalcStories()">
+                  <span class="input-unit">runs</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title"><i class="ti ti-help-circle" aria-hidden="true"></i> How to format your document</div>
+              <div class="format-guide">
+                <div class="fg-item"><div class="fg-label">Story markers</div><div class="fg-desc">Start each story with a number, "Story:", "US-", "ABTCB-", or a heading like "## Story 1"</div></div>
+                <div class="fg-item"><div class="fg-label">Acceptance criteria</div><div class="fg-desc">Include "Acceptance Criteria:" or "AC:" sections — these are counted as input tokens</div></div>
+                <div class="fg-item"><div class="fg-label">File formats</div><div class="fg-desc">Plain text (.txt) or Markdown (.md) work best</div></div>
+                <div class="fg-item"><div class="fg-label">Example</div><div class="fg-code">## Story 1: Upload document<br>As a user I want to...<br>Acceptance Criteria:<br>- Upload tile renders...</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-right">
+            <div id="stories-empty-state" class="card empty-card">
+              <div class="empty-card-icon"><i class="ti ti-file-upload" aria-hidden="true"></i></div>
+              <div class="empty-card-title">No document uploaded yet</div>
+              <div class="empty-card-sub">Upload a user stories document on the left to see a full per-story cost breakdown.</div>
+            </div>
+
+            <div id="stories-results" style="display:none">
+              <div class="card result-card">
+                <div class="result-header">
+                  <div class="result-label" id="stories-doc-name">User Stories Project</div>
+                  <div class="result-amount" id="stories-total-cost">$0.000</div>
+                  <div class="result-sub">estimated total implementation cost</div>
+                </div>
+                <div class="metrics-grid">
+                  <div class="metric purple"><div class="metric-label">Stories detected</div><div class="metric-val" id="stories-count">—</div></div>
+                  <div class="metric blue"><div class="metric-label">Total tokens</div><div class="metric-val" id="stories-total-tokens">—</div></div>
+                  <div class="metric"><div class="metric-label">Avg cost/story</div><div class="metric-val" id="stories-avg">—</div></div>
+                  <div class="metric green"><div class="metric-label">With caching</div><div class="metric-val" id="stories-cache-total">—</div></div>
+                </div>
+                <div class="breakdown-box" id="stories-breakdown"></div>
+              </div>
+
+              <div class="card savings-card">
+                <div class="card-title"><i class="ti ti-piggy-bank" aria-hidden="true"></i> Project savings</div>
+                <div class="savings-list">
+                  <div class="saving-row">
+                    <div class="saving-icon purple-icon"><i class="ti ti-database" aria-hidden="true"></i></div>
+                    <div><div class="saving-name">With prompt caching</div><div class="saving-desc">90% off shared codebase tokens across all stories</div></div>
+                    <div class="saving-val" id="stories-cache">—</div>
+                  </div>
+                  <div class="saving-row">
+                    <div class="saving-icon blue-icon"><i class="ti ti-clock" aria-hidden="true"></i></div>
+                    <div><div class="saving-name">With Batch API</div><div class="saving-desc">50% off — implement all stories in batch</div></div>
+                    <div class="saving-val" id="stories-batch">—</div>
+                  </div>
+                  <div class="saving-row last">
+                    <div class="saving-icon green-icon"><i class="ti ti-stars" aria-hidden="true"></i></div>
+                    <div><div class="saving-name">Both combined</div><div class="saving-desc">Maximum saving for the whole project</div></div>
+                    <div class="saving-val best" id="stories-both">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title"><i class="ti ti-table" aria-hidden="true"></i> Cost per story</div>
+                <div class="table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr><th>#</th><th>Story</th><th>Tokens (in)</th><th>Tokens (out)</th><th>Full cost</th><th>With caching</th></tr>
+                    </thead>
+                    <tbody id="stories-table-body">
+                      <tr><td colspan="6" class="empty-state">No stories detected yet.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="chart-wrap" style="height:220px;margin-top:1rem">
+                  <canvas id="stories-chart" role="img" aria-label="Bar chart showing cost per user story"></canvas>
+                </div>
+              </div>
+
+              <button class="add-btn" style="margin-top:0.5rem" onclick="sendStoriesToSprint()">
+                <i class="ti ti-list-check" aria-hidden="true"></i> Send all stories to sprint tracker
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Page: Sprint Tracker -->
       <div id="page-sprint" class="page">
         <div class="page-header">
@@ -630,3 +872,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+<!-- This marker helps us find insertion point -->
