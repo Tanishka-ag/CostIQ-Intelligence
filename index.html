@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CostIQ — Real-time Cost Intelligence</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%235340c8'/><text y='.9em' font-size='68' x='14'>💡</text></svg>">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon"><i class="ti ti-bulb" aria-hidden="true"></i></div>
+        <div>
+          <div class="brand-name">CostIQ</div>
+          <div class="brand-sub">Real-time Cost Intelligence</div>
+        </div>
+      </div>
+
+      <div class="nav-section-label">Get started</div>
+      <nav class="nav" role="navigation" aria-label="Main navigation">
+        <button class="nav-item active" onclick="showPage('guide', this)" aria-current="page">
+          <i class="ti ti-book-2" aria-hidden="true"></i>
+          <span>Token guide</span>
+          <span class="nav-pill">Start here</span>
+        </button>
+
+        <div class="nav-section-label" style="margin-top:1rem">Tools</div>
+
+        <button class="nav-item" onclick="showPage('calc', this)">
+          <i class="ti ti-calculator" aria-hidden="true"></i>
+          <span>Story calculator</span>
+        </button>
+        <button class="nav-item" onclick="showPage('sprint', this)">
+          <i class="ti ti-list-check" aria-hidden="true"></i>
+          <span>Sprint tracker</span>
+          <span class="badge-count" id="nav-badge" style="display:none">0</span>
+        </button>
+        <button class="nav-item" onclick="showPage('workflow', this)">
+          <i class="ti ti-git-branch" aria-hidden="true"></i>
+          <span>Workflow cost</span>
+        </button>
+
+        <div class="nav-section-label" style="margin-top:1rem">Learn</div>
+
+        <button class="nav-item" onclick="showPage('compare', this)">
+          <i class="ti ti-arrows-diff" aria-hidden="true"></i>
+          <span>Claude vs Copilot</span>
+        </button>
+        <button class="nav-item" onclick="showPage('qna', this)">
+          <i class="ti ti-help-circle" aria-hidden="true"></i>
+          <span>Client Q&amp;A</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-version">CostIQ v1.0</div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main-content">
+
+      <!-- Page: Token Guide (first / landing) -->
+      <div id="page-guide" class="page active">
+        <div class="page-header hero-header">
+          <div class="hero-badge"><i class="ti ti-sparkles" aria-hidden="true"></i> Start here</div>
+          <h1>Understand tokens first</h1>
+          <p class="page-sub">Tokens are the currency of AI. Before using the calculator, spend 2 minutes here — it makes everything else click.</p>
+        </div>
+
+        <div class="guide-grid">
+          <div class="card glow-card">
+            <div class="card-icon purple"><i class="ti ti-puzzle" aria-hidden="true"></i></div>
+            <div class="card-title">What is a token?</div>
+            <p class="guide-text">Think of a token as a word-chunk. Claude doesn't read letter by letter — it reads in small pieces called tokens. About 4 letters = 1 token.</p>
+            <div class="token-examples">
+              <div class="te-item"><span class="te-word">"bank"</span><span class="te-count">= 1 token</span></div>
+              <div class="te-item"><span class="te-word">"banking"</span><span class="te-count">≈ 2 tokens</span></div>
+              <div class="te-item"><span class="te-word">1 sentence</span><span class="te-count">≈ 15–20 tokens</span></div>
+              <div class="te-item"><span class="te-word">1 paragraph</span><span class="te-count">≈ 80–100 tokens</span></div>
+              <div class="te-item"><span class="te-word">1 code file</span><span class="te-count">≈ 2,000–4,000 tokens</span></div>
+              <div class="te-item highlight-te"><span class="te-word">1 million tokens</span><span class="te-count">≈ 750,000 words</span></div>
+            </div>
+          </div>
+
+          <div class="card glow-card">
+            <div class="card-icon blue"><i class="ti ti-arrows-exchange" aria-hidden="true"></i></div>
+            <div class="card-title">Input vs output</div>
+            <p class="guide-text">Input is what you send to Claude. Output is what Claude writes back. Writing costs 5× more than reading — because generating an answer is harder work.</p>
+            <div class="io-diagram">
+              <div class="io-box input-box">
+                <div class="io-label">Input</div>
+                <div class="io-items">Story description<br>Code files<br>Instructions</div>
+                <div class="io-price">$3 per 1M</div>
+              </div>
+              <div class="io-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></div>
+              <div class="io-box claude-box">
+                <div class="io-label">Claude</div>
+                <div class="io-items">Reads &amp; writes</div>
+              </div>
+              <div class="io-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></div>
+              <div class="io-box output-box">
+                <div class="io-label">Output</div>
+                <div class="io-items">Code<br>Tests<br>Fixes</div>
+                <div class="io-price">$15 per 1M</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card glow-card">
+            <div class="card-icon green"><i class="ti ti-math-function" aria-hidden="true"></i></div>
+            <div class="card-title">The formula</div>
+            <div class="formula-box">
+              <div class="formula-line big">Cost = Input Cost + Output Cost</div>
+              <div class="formula-divider"></div>
+              <div class="formula-line">Input Cost &nbsp;= Tokens ÷ 1,000,000 × $3</div>
+              <div class="formula-line">Output Cost = Tokens ÷ 1,000,000 × $15</div>
+              <div class="formula-divider"></div>
+              <div class="formula-example">Example — medium story on Sonnet 4.6</div>
+              <div class="formula-line">(25,000 ÷ 1M × $3) + (8,000 ÷ 1M × $15)</div>
+              <div class="formula-line accent">= $0.075 + $0.120 = <strong>$0.195</strong></div>
+            </div>
+          </div>
+
+          <div class="card glow-card">
+            <div class="card-icon amber"><i class="ti ti-eye" aria-hidden="true"></i></div>
+            <div class="card-title">How to find your token count</div>
+            <div class="guide-steps">
+              <div class="gs-item">
+                <div class="gs-num">1</div>
+                <div class="gs-body">
+                  <div class="gs-title">Claude Code reports automatically</div>
+                  <div class="gs-desc">After every session, the terminal prints exact token count + cost. Just read it off.</div>
+                </div>
+              </div>
+              <div class="gs-item">
+                <div class="gs-num">2</div>
+                <div class="gs-body">
+                  <div class="gs-title">Anthropic Console</div>
+                  <div class="gs-desc">console.anthropic.com → Usage — every call logged with tokens and cost.</div>
+                </div>
+              </div>
+              <div class="gs-item">
+                <div class="gs-num">3</div>
+                <div class="gs-body">
+                  <div class="gs-title">Free tokenizer tool</div>
+                  <div class="gs-desc">platform.anthropic.com/tokenizer — paste any text, get exact count instantly.</div>
+                </div>
+              </div>
+              <div class="gs-item">
+                <div class="gs-num">4</div>
+                <div class="gs-body">
+                  <div class="gs-title">Quick estimate</div>
+                  <div class="gs-desc">Words ÷ 0.75 = tokens &nbsp;|&nbsp; Lines of code ÷ 5 = tokens per file</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card price-table-card" style="margin-top:1.5rem">
+          <div class="card-title"><i class="ti ti-tag" aria-hidden="true"></i> Price reference — all three models</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr><th>Model</th><th>Input / 1M tokens</th><th>Input / 1K tokens</th><th>Output / 1M tokens</th><th>Output / 1K tokens</th><th>Best for</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Haiku 4.5</td><td>$1.00</td><td>$0.001</td><td>$5.00</td><td>$0.005</td><td>Fast, simple, repetitive tasks</td></tr>
+                <tr class="highlight-row"><td><strong>Sonnet 4.6</strong></td><td><strong>$3.00</strong></td><td><strong>$0.003</strong></td><td><strong>$15.00</strong></td><td><strong>$0.015</strong></td><td><strong>Most stories — recommended ✓</strong></td></tr>
+                <tr><td>Opus 4.8</td><td>$5.00</td><td>$0.005</td><td>$25.00</td><td>$0.025</td><td>Complex reasoning &amp; agents</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="cta-banner">
+          <div class="cta-text">
+            <div class="cta-title">Ready to calculate your first story?</div>
+            <div class="cta-sub">Use the Story Calculator to estimate the cost of any Jira story in seconds.</div>
+          </div>
+          <button class="cta-btn" onclick="showPage('calc', document.querySelectorAll('.nav-item')[1])">
+            <i class="ti ti-calculator" aria-hidden="true"></i> Open story calculator
+          </button>
+        </div>
+      </div>
+
+      <!-- Page: Story Calculator -->
+      <div id="page-calc" class="page">
+        <div class="page-header">
+          <div class="hero-badge blue-badge"><i class="ti ti-calculator" aria-hidden="true"></i> Calculator</div>
+          <h1>Story cost calculator</h1>
+          <p class="page-sub">Enter your Jira story details and get an instant cost estimate for implementing it with Claude Code.</p>
+        </div>
+
+        <div class="two-col">
+          <div class="col-left">
+            <div class="card">
+              <div class="card-title"><i class="ti ti-ticket" aria-hidden="true"></i> Story details</div>
+              <div class="field">
+                <label class="field-label" for="jira-id">Jira story ID</label>
+                <input type="text" id="jira-id" placeholder="e.g. ABTCB-131" oninput="calc()">
+              </div>
+              <div class="field">
+                <label class="field-label" for="model">Claude model</label>
+                <select id="model" onchange="calc()">
+                  <option value="haiku">Haiku 4.5 — fast &amp; cheap ($1 / $5 per 1M)</option>
+                  <option value="sonnet" selected>Sonnet 4.6 — recommended ($3 / $15 per 1M)</option>
+                  <option value="opus">Opus 4.8 — most powerful ($5 / $25 per 1M)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label">Story size preset</label>
+                <div class="preset-row">
+                  <button class="preset-btn" onclick="loadPreset('small', this)"><i class="ti ti-circle-xs" aria-hidden="true"></i> Small</button>
+                  <button class="preset-btn active" onclick="loadPreset('medium', this)"><i class="ti ti-circle" aria-hidden="true"></i> Medium</button>
+                  <button class="preset-btn" onclick="loadPreset('large', this)"><i class="ti ti-circle-filled" aria-hidden="true"></i> Large</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card token-card input-token-card">
+              <div class="card-title">
+                <span class="token-dir-badge in-badge">IN</span>
+                Input tokens
+                <span class="card-sub">what you send to Claude</span>
+              </div>
+              <div class="field">
+                <label class="field-label" for="sys">System prompt + story + acceptance criteria</label>
+                <div class="input-row">
+                  <input type="number" id="sys" value="2500" min="0" step="100" oninput="calc()">
+                  <span class="input-unit">tokens</span>
+                </div>
+                <p class="field-hint"><i class="ti ti-bulb" aria-hidden="true"></i> 300 words ≈ 400 tokens. A full story ≈ 2,000–3,000 tokens.</p>
+              </div>
+              <div class="field">
+                <label class="field-label" for="files">Code files Claude reads from your codebase</label>
+                <div class="input-row">
+                  <input type="number" id="files" value="20000" min="0" step="500" oninput="calc()">
+                  <span class="input-unit">tokens</span>
+                </div>
+                <p class="field-hint"><i class="ti ti-bulb" aria-hidden="true"></i> One file ≈ 2,000–4,000 tokens. Five files ≈ 15,000 tokens.</p>
+              </div>
+              <div class="field">
+                <label class="field-label" for="chat">Back-and-forth messages in the session</label>
+                <div class="input-row">
+                  <input type="number" id="chat" value="3000" min="0" step="100" oninput="calc()">
+                  <span class="input-unit">tokens</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card token-card output-token-card">
+              <div class="card-title">
+                <span class="token-dir-badge out-badge">OUT</span>
+                Output tokens
+                <span class="card-sub">what Claude writes back</span>
+              </div>
+              <div class="field">
+                <label class="field-label" for="code">Code Claude generates (components, tests, logic)</label>
+                <div class="input-row">
+                  <input type="number" id="code" value="8000" min="0" step="100" oninput="calc()">
+                  <span class="input-unit">tokens</span>
+                </div>
+                <p class="field-hint"><i class="ti ti-bulb" aria-hidden="true"></i> One React component ≈ 2,000–3,000 tokens. With tests ≈ 5,000–8,000.</p>
+              </div>
+              <div class="field">
+                <label class="field-label" for="runs">Number of runs (attempts + revisions)</label>
+                <div class="input-row">
+                  <input type="number" id="runs" value="2" min="1" max="10" step="1" oninput="calc()">
+                  <span class="input-unit">runs</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-right">
+            <div class="card result-card">
+              <div class="result-header">
+                <div class="result-label" id="r-jira-label">Estimated cost</div>
+                <div class="result-amount" id="r-total">$0.000</div>
+                <div class="result-sub">for this story</div>
+              </div>
+              <div class="metrics-grid">
+                <div class="metric"><div class="metric-label">Input tokens</div><div class="metric-val" id="r-in">—</div></div>
+                <div class="metric"><div class="metric-label">Output tokens</div><div class="metric-val" id="r-out">—</div></div>
+                <div class="metric blue"><div class="metric-label">Input cost</div><div class="metric-val" id="r-in-cost">—</div></div>
+                <div class="metric green"><div class="metric-label">Output cost</div><div class="metric-val" id="r-out-cost">—</div></div>
+              </div>
+              <div class="breakdown-box" id="r-breakdown"></div>
+            </div>
+
+            <div class="card savings-card">
+              <div class="card-title"><i class="ti ti-piggy-bank" aria-hidden="true"></i> With savings applied</div>
+              <div class="savings-list">
+                <div class="saving-row">
+                  <div class="saving-icon purple-icon"><i class="ti ti-database" aria-hidden="true"></i></div>
+                  <div>
+                    <div class="saving-name">Prompt caching</div>
+                    <div class="saving-desc">90% off repeated input tokens</div>
+                  </div>
+                  <div class="saving-val" id="r-cache">—</div>
+                </div>
+                <div class="saving-row">
+                  <div class="saving-icon blue-icon"><i class="ti ti-clock" aria-hidden="true"></i></div>
+                  <div>
+                    <div class="saving-name">Batch API</div>
+                    <div class="saving-desc">50% off — for non-real-time tasks</div>
+                  </div>
+                  <div class="saving-val" id="r-batch">—</div>
+                </div>
+                <div class="saving-row last">
+                  <div class="saving-icon green-icon"><i class="ti ti-stars" aria-hidden="true"></i></div>
+                  <div>
+                    <div class="saving-name">Both combined</div>
+                    <div class="saving-desc">Maximum saving possible</div>
+                  </div>
+                  <div class="saving-val best" id="r-both">—</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card sprint-context-card">
+              <div class="card-title"><i class="ti ti-rocket" aria-hidden="true"></i> Sprint context</div>
+              <div class="sprint-estimate">
+                <div class="se-item">
+                  <div class="se-label">Full cost × 10 stories</div>
+                  <div class="se-val" id="r-sprint10">—</div>
+                </div>
+                <div class="se-item highlight-se">
+                  <div class="se-label">With caching × 10 stories</div>
+                  <div class="se-val green" id="r-sprint10-cache">—</div>
+                </div>
+              </div>
+              <button class="add-btn" onclick="addToSprint()">
+                <i class="ti ti-plus" aria-hidden="true"></i> Add to sprint tracker
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page: Sprint Tracker -->
+      <div id="page-sprint" class="page">
+        <div class="page-header">
+          <div class="hero-badge green-badge"><i class="ti ti-list-check" aria-hidden="true"></i> Tracker</div>
+          <h1>Sprint tracker</h1>
+          <p class="page-sub">Track and compare the cost of every story in your sprint in one place.</p>
+        </div>
+
+        <div class="metrics-grid wide" style="margin-bottom:1.5rem">
+          <div class="metric purple"><div class="metric-label">Stories tracked</div><div class="metric-val" id="sm-count">0</div></div>
+          <div class="metric"><div class="metric-label">Total sprint cost</div><div class="metric-val" id="sm-total">$0.000</div></div>
+          <div class="metric green"><div class="metric-label">With caching</div><div class="metric-val" id="sm-cache">$0.000</div></div>
+          <div class="metric"><div class="metric-label">Avg per story</div><div class="metric-val" id="sm-avg">—</div></div>
+          <div class="metric blue"><div class="metric-label">Total saving</div><div class="metric-val" id="sm-saving">$0.000</div></div>
+        </div>
+
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title"><i class="ti ti-plus" aria-hidden="true"></i> Add story manually</div>
+          <div class="add-manual-row">
+            <input type="text" id="sp-id" placeholder="Jira ID e.g. ABTCB-131" style="width:180px">
+            <select id="sp-size">
+              <option value="small">Small story</option>
+              <option value="medium" selected>Medium story</option>
+              <option value="large">Large story</option>
+            </select>
+            <select id="sp-model">
+              <option value="haiku">Haiku 4.5</option>
+              <option value="sonnet" selected>Sonnet 4.6</option>
+              <option value="opus">Opus 4.8</option>
+            </select>
+            <button class="add-btn small" onclick="addManual()"><i class="ti ti-plus" aria-hidden="true"></i> Add</button>
+            <button class="clear-btn" onclick="clearSprint()"><i class="ti ti-trash" aria-hidden="true"></i> Clear all</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><i class="ti ti-table" aria-hidden="true"></i> Stories in this sprint</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr><th>Jira ID</th><th>Size</th><th>Model</th><th>Input tokens</th><th>Output tokens</th><th>Full cost</th><th>With caching</th><th>Saving</th><th></th></tr>
+              </thead>
+              <tbody id="sprint-body">
+                <tr><td colspan="9" class="empty-state"><i class="ti ti-inbox" aria-hidden="true"></i><br>No stories yet. Add one from the Story calculator or use the form above.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:1.5rem">
+          <div class="card-title"><i class="ti ti-chart-bar" aria-hidden="true"></i> Cost per story</div>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot blue-dot"></span>Full cost</span>
+            <span class="legend-item"><span class="legend-dot green-dot"></span>With caching</span>
+          </div>
+          <div class="chart-wrap"><canvas id="sprint-chart" role="img" aria-label="Bar chart showing cost per Jira story"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Page: Workflow Cost -->
+      <div id="page-workflow" class="page">
+        <div class="page-header">
+          <div class="hero-badge amber-badge"><i class="ti ti-git-branch" aria-hidden="true"></i> Workflow</div>
+          <h1>Workflow cost breakdown</h1>
+          <p class="page-sub">Your 8-step implementation workflow — only one step costs money. The rest are completely free.</p>
+        </div>
+
+        <div class="metrics-grid wide" style="margin-bottom:1.5rem">
+          <div class="metric green"><div class="metric-label">Steps with zero cost</div><div class="metric-val">7 of 8</div></div>
+          <div class="metric purple"><div class="metric-label">Where all cost happens</div><div class="metric-val">Step 4 only</div></div>
+          <div class="metric blue"><div class="metric-label">Typical cost per story</div><div class="metric-val">$0.10–$0.50</div></div>
+        </div>
+
+        <div class="workflow-list">
+          <div class="wf-step">
+            <div class="wf-num free-num">1</div>
+            <div class="wf-body">
+              <div class="wf-title"><span><i class="ti ti-folder-open" aria-hidden="true"></i> Open folder in VS Code</span><span class="wf-badge free-badge">$0 — free</span></div>
+              <div class="wf-desc">No Claude involved. Just opening your project in the editor.</div>
+              <div class="wf-tool"><span class="tool-tag">VS Code</span></div>
+            </div>
+          </div>
+          <div class="wf-connector"></div>
+
+          <div class="wf-step">
+            <div class="wf-num free-num">2</div>
+            <div class="wf-body">
+              <div class="wf-title"><span><i class="ti ti-cloud-download" aria-hidden="true"></i> Fetch latest code — git pull</span><span class="wf-badge free-badge">$0 — free</span></div>
+              <div class="wf-desc">Pure Git command. Claude is not involved at this step.</div>
+              <div class="wf-tool"><span class="tool-tag">Git</span></div>
+            </div>
+          </div>
+          <div class="wf-connector"></div>
+
+          <div class="wf-step">
+            <div class="wf-num free-num">3</div>
+            <div class="wf-body">
+              <div class="wf-title"><span><i class="ti ti-terminal" aria-hidden="true"></i> Open Claude Code in terminal</span><span class="wf-badge free-badge">$0 — free</span></div>
+              <div class="wf-desc">Launching the tool is free. Tokens only start when you give it a task.</div>
+              <div class="wf-tool"><span class="tool-tag">Claude Code</span></div>
+            </div>
+          </div>
+          <div class="wf-connector"></div>
+
+          <div class="wf-step cost-step">
+            <div class="wf-num cost-num">4</div>
+            <div class="wf-body cost-body">
+              <div class="wf-title"><span><i class="ti ti-sparkles" aria-hidden="true"></i> Build the story in Claude Code</span><span class="wf-badge cost-badge">All cost happens here</span></div>
+              <div class="wf-desc">Claude reads your codebase, understands the story, writes code, runs tests, and fixes errors. Every file read = input tokens. Every line written = output tokens.</div>
+              <div class="wf-formula"><code>Cost = (Input tokens ÷ 1,000,000 × $3) + (Output tokens ÷ 1,000,000 × $15)</code></div>
+              <div class="wf-tool"><span class="tool-tag">Claude Code</span><span class="tool-tag cost-tag">Sonnet 4.6</span></div>
+            </div>
+          </div>
+          <div class="wf-connector"></div>
+
+          <div class="wf-step">
+            <div class="wf-num free-num">5</div>
+            <div class="wf-body">
+              <div class="wf-title"><span><i class="ti ti-git-branch" aria-hidden="true"></i> Checkout latest before pushing</span><span class="wf-badge free-badge">~$0.001</span></div>
+              <div class="wf-desc">Ask Claude to run git checkout + git pull. About 50–100 tokens. A fraction of a cent.</div>
+              <div class="wf-tool"><span class="tool-tag">Git</span><span class="tool-tag">Claude Code</span></div>
+            </div>
+          </div>
+          <div class="wf-connector"></div>
+
+          <div class="wf-step">
+            <div class="wf-num free-num">6</div>
+            <div class="wf-body">
+              <div class="wf-title"><span><i class="ti ti-git-pull-request" aria-hidden="true"></i> Create pull request on GitHub</span><span class="wf-badge free-badge">$0 — free</span></div>
+              <div class="wf-desc">Done on GitHub's interface. No Claude API call is made.</div>
+              <div class="wf-tool"><span class="tool-tag">GitHub</span></div>
+            </div>
+          </div>
+          <div class="wf-connector"></div>
+
+          <div class="wf-step">
+            <div class="wf-num free-num">7</div>
+            <div class="wf-body">
+              <div class="wf-title"><span><i class="ti ti-git-merge" aria-hidden="true"></i> Merge PR into repository</span><span class="wf-badge free-badge">$0 — free</span></div>
+              <div class="wf-desc">Done on GitHub after code review approval. No Claude involved.</div>
+              <div class="wf-tool"><span class="tool-tag">GitHub</span></div>
+            </div>
+          </div>
+          <div class="wf-connector"></div>
+
+          <div class="wf-step">
+            <div class="wf-num free-num">8</div>
+            <div class="wf-body">
+              <div class="wf-title"><span><i class="ti ti-refresh" aria-hidden="true"></i> Fetch merged code back to local</span><span class="wf-badge free-badge">$0 — free</span></div>
+              <div class="wf-desc">Everyone on the team runs git pull to stay in sync. Pure Git — no Claude.</div>
+              <div class="wf-tool"><span class="tool-tag">Git</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page: Claude vs Copilot -->
+      <div id="page-compare" class="page">
+        <div class="page-header">
+          <div class="hero-badge coral-badge"><i class="ti ti-arrows-diff" aria-hidden="true"></i> Comparison</div>
+          <h1>Claude Code vs GitHub Copilot</h1>
+          <p class="page-sub">A plain-English comparison — know the difference before your next client or manager conversation.</p>
+        </div>
+
+        <div class="compare-grid">
+          <div class="compare-card claude-card">
+            <div class="compare-header claude-header">
+              <div class="compare-logo claude-logo"><i class="ti ti-terminal" aria-hidden="true"></i></div>
+              <div>
+                <div class="compare-name">Claude Code</div>
+                <div class="compare-tag">by Anthropic</div>
+              </div>
+            </div>
+            <div class="compare-desc">Like hiring a contractor. Give it a full task, it reads the codebase, makes a plan, writes the code, runs tests, and delivers finished work.</div>
+            <div class="compare-rows">
+              <div class="cr"><span class="cr-label">Context window</span><span class="cr-val win">1 million tokens</span></div>
+              <div class="cr"><span class="cr-label">Benchmark (SWE-bench)</span><span class="cr-val win">88.6%</span></div>
+              <div class="cr"><span class="cr-label">Multi-file tasks</span><span class="cr-val win">Excellent</span></div>
+              <div class="cr"><span class="cr-label">Autonomous execution</span><span class="cr-val win">Yes — plans &amp; runs</span></div>
+              <div class="cr"><span class="cr-label">Inline autocomplete</span><span class="cr-val muted">No</span></div>
+              <div class="cr"><span class="cr-label">Starting price</span><span class="cr-val muted">$20 / month</span></div>
+              <div class="cr"><span class="cr-label">IDE integration</span><span class="cr-val">VS Code, JetBrains</span></div>
+            </div>
+          </div>
+
+          <div class="compare-vs">
+            <div class="vs-circle">vs</div>
+          </div>
+
+          <div class="compare-card copilot-card">
+            <div class="compare-header copilot-header">
+              <div class="compare-logo copilot-logo"><i class="ti ti-brand-github" aria-hidden="true"></i></div>
+              <div>
+                <div class="compare-name">GitHub Copilot</div>
+                <div class="compare-tag">by Microsoft / OpenAI</div>
+              </div>
+            </div>
+            <div class="compare-desc">Like autocomplete on steroids. Sits in your editor and suggests the next line as you type. Fast, helpful for everyday coding.</div>
+            <div class="compare-rows">
+              <div class="cr"><span class="cr-label">Context window</span><span class="cr-val muted">32K–128K tokens</span></div>
+              <div class="cr"><span class="cr-label">Benchmark (SWE-bench)</span><span class="cr-val muted">~56%</span></div>
+              <div class="cr"><span class="cr-label">Multi-file tasks</span><span class="cr-val muted">Limited</span></div>
+              <div class="cr"><span class="cr-label">Autonomous execution</span><span class="cr-val muted">Requires guidance</span></div>
+              <div class="cr"><span class="cr-label">Inline autocomplete</span><span class="cr-val win">Yes — excellent</span></div>
+              <div class="cr"><span class="cr-label">Starting price</span><span class="cr-val win">$10 / month</span></div>
+              <div class="cr"><span class="cr-label">IDE integration</span><span class="cr-val win">8+ editors</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="recommendation-card">
+          <div class="rec-icon"><i class="ti ti-check" aria-hidden="true"></i></div>
+          <div>
+            <div class="rec-title">The honest answer — do we have to choose?</div>
+            <div class="rec-text">Most professional teams use <strong>both</strong>. Copilot handles daily typing speed in the IDE. Claude Code handles the big tasks — building a full Jira story, large refactors, implementing a whole feature. They work at completely different levels and don't conflict.</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:1rem">
+          <div class="card-title"><i class="ti ti-currency-dollar" aria-hidden="true"></i> Pricing comparison</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Tool / Plan</th><th>Price</th><th>Best for</th></tr></thead>
+              <tbody>
+                <tr><td>Copilot Individual</td><td>$10/month</td><td>Individual developers</td></tr>
+                <tr><td>Copilot Business</td><td>$19/user/month</td><td>Teams with admin controls</td></tr>
+                <tr class="highlight-row"><td><strong>Claude Code Pro</strong></td><td><strong>$20/month</strong></td><td><strong>Moderate use — recommended to start</strong></td></tr>
+                <tr><td>Claude Code Max 5×</td><td>$100/month</td><td>Heavy daily use</td></tr>
+                <tr><td>Claude Code Max 20×</td><td>$200/month</td><td>Power users, long sessions</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page: Client Q&A -->
+      <div id="page-qna" class="page">
+        <div class="page-header">
+          <div class="hero-badge teal-badge"><i class="ti ti-help-circle" aria-hidden="true"></i> Q&amp;A</div>
+          <h1>Client Q&amp;A</h1>
+          <p class="page-sub">Plain-English answers ready for your next client or manager conversation. Click any question to expand.</p>
+        </div>
+
+        <div class="qna-section">
+          <div class="qna-section-title"><i class="ti ti-coins" aria-hidden="true"></i> Tokens &amp; billing</div>
+          <div id="qna-list-billing" class="qna-list"></div>
+        </div>
+        <div class="qna-section">
+          <div class="qna-section-title"><i class="ti ti-terminal" aria-hidden="true"></i> Claude Code</div>
+          <div id="qna-list-claude" class="qna-list"></div>
+        </div>
+        <div class="qna-section">
+          <div class="qna-section-title"><i class="ti ti-shield-check" aria-hidden="true"></i> Privacy &amp; security</div>
+          <div id="qna-list-privacy" class="qna-list"></div>
+        </div>
+        <div class="qna-section">
+          <div class="qna-section-title"><i class="ti ti-table" aria-hidden="true"></i> Quick numbers to remember</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Question</th><th>Simple answer</th></tr></thead>
+              <tbody>
+                <tr><td>What is 1 token?</td><td>About 1 small word or 4 letters</td></tr>
+                <tr><td>Tokens in a paragraph?</td><td>Roughly 80–100</td></tr>
+                <tr><td>Cost of one typical API call?</td><td>About 1–3 cents</td></tr>
+                <tr><td>Output vs input price?</td><td>Output costs 5× more</td></tr>
+                <tr><td>Prompt caching saving?</td><td>Up to 90% on input tokens</td></tr>
+                <tr><td>Batch API saving?</td><td>50% off all tokens</td></tr>
+                <tr><td>Claude Code context window?</td><td>1 million tokens (entire codebase)</td></tr>
+                <tr><td>Copilot context window?</td><td>32K–128K tokens (small slice)</td></tr>
+                <tr><td>Claude Code benchmark?</td><td>88.6% on real coding tasks</td></tr>
+                <tr><td>Copilot benchmark?</td><td>~56% on real coding tasks</td></tr>
+                <tr><td>Claude Code subscription?</td><td>From $20/month</td></tr>
+                <tr><td>Copilot subscription?</td><td>From $10/month</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
