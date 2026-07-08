@@ -728,3 +728,394 @@ function sendStoriesToSprint() {
   // activate sprint nav item
   document.querySelectorAll('.nav-item')[4].classList.add('active');
 }
+
+// ── Jira OAuth Config ─────────────────────────────────────────
+const JIRA_CLIENT_ID     = '7bhahgH05sfpcYCYNdSzA9QQxFFCZofT';
+const JIRA_REDIRECT_URI  = 'https://tanishka-ag.github.io/CostIQ-Intelligence/';
+const JIRA_SCOPE         = 'read:jira-work read:jira-user offline_access';
+const JIRA_AUTH_URL      = 'https://auth.atlassian.com/authorize';
+const JIRA_TOKEN_URL     = 'https://auth.atlassian.com/oauth/token';
+const JIRA_API_BASE      = 'https://api.atlassian.com';
+
+// ── Jira state ────────────────────────────────────────────────
+let jiraToken       = null;
+let jiraCloudId     = null;
+let jiraSiteName    = null;
+let currentStoryEst = null;
+let jiraHistory     = [];
+
+// ── PKCE helpers ──────────────────────────────────────────────
+function generateRandomString(length) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  const arr = new Uint8Array(length);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => chars[b % chars.length]).join('');
+}
+
+async function generateCodeChallenge(verifier) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// ── Connect to Jira ───────────────────────────────────────────
+async function connectJira() {
+  const verifier  = generateRandomString(64);
+  const challenge = await generateCodeChallenge(verifier);
+  const state     = generateRandomString(16);
+
+  // Store for after redirect
+  sessionStorage.setItem('jira_verifier', verifier);
+  sessionStorage.setItem('jira_state', state);
+
+  const params = new URLSearchParams({
+    audience:              'api.atlassian.com',
+    client_id:             JIRA_CLIENT_ID,
+    scope:                 JIRA_SCOPE,
+    redirect_uri:          JIRA_REDIRECT_URI,
+    state:                 state,
+    response_type:         'code',
+    prompt:                'consent',
+    code_challenge:        challenge,
+    code_challenge_method: 'S256'
+  });
+
+  window.location.href = `${JIRA_AUTH_URL}?${params.toString()}`;
+}
+
+// ── Handle OAuth callback ─────────────────────────────────────
+async function handleOAuthCallback() {
+  const params   = new URLSearchParams(window.location.search);
+  const code     = params.get('code');
+  const state    = params.get('state');
+  const error    = params.get('error');
+
+  if (error) {
+    alert('Jira authorisation failed: ' + error);
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return;
+  }
+
+  if (!code) return;
+
+  const savedState    = sessionStorage.getItem('jira_state');
+  const verifier      = sessionStorage.getItem('jira_verifier');
+
+  if (state !== savedState) {
+    alert('Security error: state mismatch. Please try connecting again.');
+    return;
+  }
+
+  // Clean URL
+  window.history.replaceState({}, document.title, window.location.pathname);
+
+  try {
+    // Exchange code for token
+    const tokenRes = await fetch(JIRA_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grant_type:    'authorization_code',
+        client_id:     JIRA_CLIENT_ID,
+        code,
+        redirect_uri:  JIRA_REDIRECT_URI,
+        code_verifier: verifier
+      })
+    });
+
+    if (!tokenRes.ok) throw new Error('Token exchange failed');
+    const tokenData = await tokenRes.json();
+    jiraToken = tokenData.access_token;
+
+    // Store token
+    sessionStorage.setItem('jira_access_token', jiraToken);
+    sessionStorage.removeItem('jira_verifier');
+    sessionStorage.removeItem('jira_state');
+
+    // Get cloud ID
+    await loadJiraSites();
+    showJiraConnected();
+
+    // Navigate to jira page
+    showPage('jira', null);
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.nav-item')[2].classList.add('active');
+
+  } catch (err) {
+    alert('Failed to connect to Jira: ' + err.message + '\n\nPlease try again.');
+  }
+}
+
+async function loadJiraSites() {
+  const res  = await fetch(`${JIRA_API_BASE}/oauth/token/accessible-resources`, {
+    headers: { 'Authorization': `Bearer ${jiraToken}`, 'Accept': 'application/json' }
+  });
+  if (!res.ok) throw new Error('Could not load Jira sites');
+  const sites = await res.json();
+  if (!sites.length) throw new Error('No accessible Jira sites found');
+
+  // Use first site
+  jiraCloudId  = sites[0].id;
+  jiraSiteName = sites[0].name + ' (' + sites[0].url + ')';
+  sessionStorage.setItem('jira_cloud_id',  jiraCloudId);
+  sessionStorage.setItem('jira_site_name', jiraSiteName);
+}
+
+function showJiraConnected() {
+  g('jira-connect-section').style.display   = 'none';
+  g('jira-connected-section').style.display = 'block';
+  g('jira-site-name').textContent = jiraSiteName || 'Connected';
+}
+
+function disconnectJira() {
+  jiraToken = jiraCloudId = jiraSiteName = null;
+  sessionStorage.removeItem('jira_access_token');
+  sessionStorage.removeItem('jira_cloud_id');
+  sessionStorage.removeItem('jira_site_name');
+  g('jira-connect-section').style.display   = 'block';
+  g('jira-connected-section').style.display = 'none';
+  g('jira-story-card').style.display        = 'none';
+  g('jira-estimate-card').style.display     = 'none';
+  g('jira-estimate-empty').style.display    = 'block';
+}
+
+// ── Restore session ───────────────────────────────────────────
+function restoreJiraSession() {
+  const token    = sessionStorage.getItem('jira_access_token');
+  const cloudId  = sessionStorage.getItem('jira_cloud_id');
+  const siteName = sessionStorage.getItem('jira_site_name');
+  if (token && cloudId) {
+    jiraToken    = token;
+    jiraCloudId  = cloudId;
+    jiraSiteName = siteName;
+    showJiraConnected();
+  }
+}
+
+// ── Fetch Jira story ──────────────────────────────────────────
+async function fetchJiraStory() {
+  const storyId = g('jira-story-id').value.trim().toUpperCase();
+  if (!storyId) { showJiraError('Please enter a Jira story ID.'); return; }
+
+  g('jira-fetch-error').style.display   = 'none';
+  g('jira-fetch-loading').style.display = 'flex';
+  g('fetch-btn').disabled = true;
+
+  try {
+    const url = `${JIRA_API_BASE}/ex/jira/${jiraCloudId}/rest/api/3/issue/${storyId}`;
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${jiraToken}`, 'Accept': 'application/json' }
+    });
+
+    if (res.status === 401) { disconnectJira(); throw new Error('Session expired. Please reconnect to Jira.'); }
+    if (res.status === 404) throw new Error(`Story "${storyId}" not found. Check the story ID and try again.`);
+    if (!res.ok)            throw new Error(`Failed to fetch story (${res.status}). Please try again.`);
+
+    const data = await res.json();
+    displayJiraStory(data);
+
+  } catch (err) {
+    showJiraError(err.message);
+  } finally {
+    g('jira-fetch-loading').style.display = 'none';
+    g('fetch-btn').disabled = false;
+  }
+}
+
+function showJiraError(msg) {
+  const el = g('jira-fetch-error');
+  el.style.display = 'flex';
+  el.innerHTML = `<i class="ti ti-alert-circle" aria-hidden="true"></i> ${escHtml(msg)}`;
+}
+
+function extractText(doc) {
+  if (!doc) return '—';
+  if (typeof doc === 'string') return doc;
+  // Atlassian Document Format (ADF) → plain text
+  if (doc.content) {
+    return doc.content.map(block => {
+      if (block.type === 'paragraph' && block.content) {
+        return block.content.map(n => n.text || '').join('');
+      }
+      if (block.type === 'bulletList' && block.content) {
+        return block.content.map(li => '• ' + (li.content?.[0]?.content?.map(n => n.text || '').join('') || '')).join('\n');
+      }
+      if (block.type === 'orderedList' && block.content) {
+        return block.content.map((li, i) => `${i+1}. ` + (li.content?.[0]?.content?.map(n => n.text || '').join('') || '')).join('\n');
+      }
+      if (block.type === 'heading' && block.content) {
+        return block.content.map(n => n.text || '').join('');
+      }
+      return '';
+    }).filter(Boolean).join('\n\n');
+  }
+  return '—';
+}
+
+function displayJiraStory(data) {
+  const fields = data.fields;
+  const id     = data.key;
+
+  const title      = fields.summary || '—';
+  const status     = fields.status?.name || '—';
+  const points     = fields.story_points || fields.customfield_10016 || fields.customfield_10028 || '—';
+  const assignee   = fields.assignee?.displayName || 'Unassigned';
+  const descText   = extractText(fields.description);
+
+  // Try to detect acceptance criteria in description
+  let acText = '';
+  const acMatch = descText.match(/acceptance criteria[:\s]*([\s\S]*?)(?:\n\n|$)/i);
+  if (acMatch) acText = acMatch[1].trim();
+
+  g('jira-story-badge').textContent    = id;
+  g('jira-story-title').textContent    = title;
+  g('jira-story-status').textContent   = status;
+  g('jira-story-points').textContent   = points;
+  g('jira-story-assignee').textContent = assignee;
+  g('jira-story-desc').textContent     = descText || '—';
+
+  if (acText) {
+    g('jira-story-ac').textContent    = acText;
+    g('jira-ac-field').style.display  = 'flex';
+  } else {
+    g('jira-ac-field').style.display  = 'none';
+  }
+
+  g('jira-story-card').style.display = 'block';
+
+  // Store for estimation
+  window._jiraStoryData = { id, title, descText, acText, points };
+  estimateJiraCost();
+}
+
+function estimateJiraCost() {
+  if (!window._jiraStoryData) return;
+  const { id, title, descText, acText } = window._jiraStoryData;
+
+  const model = g('jira-model').value;
+  const runs  = parseInt(g('jira-runs').value) || 2;
+  const p     = PRICES[model];
+
+  const storyText   = title + '\n' + descText + '\n' + acText;
+  const storyTokens = estimateTokens(storyText);
+  const inputT      = (storyTokens + 20000 + 1500) * runs; // story + codebase + chat
+  const outputT     = 6000 * runs;
+
+  const inCost  = (inputT  / 1e6) * p.in;
+  const outCost = (outputT / 1e6) * p.out;
+  const total   = inCost + outCost;
+
+  currentStoryEst = { id, total, inputT, outputT, model };
+
+  g('jira-est-label').textContent    = id + ' — estimated cost';
+  g('jira-est-cost').textContent     = fmtCost(total);
+  g('jira-story-tokens').textContent = fmtK(storyTokens);
+  g('jira-output-tokens').textContent= fmtK(outputT);
+  g('jira-in-cost').textContent      = fmtCost(inCost);
+  g('jira-out-cost').textContent     = fmtCost(outCost);
+  g('jira-breakdown').innerHTML      =
+    `Input: <span>${fmtK(inputT)} tokens ÷ 1M × $${p.in} = ${fmtCost(inCost)}</span><br>` +
+    `Output: <span>${fmtK(outputT)} tokens ÷ 1M × $${p.out} = ${fmtCost(outCost)}</span><br>` +
+    `Total: <span>${fmtCost(total)}</span>`;
+
+  g('jira-estimate-empty').style.display = 'none';
+  g('jira-estimate-card').style.display  = 'block';
+
+  // Reset actual comparison
+  g('actual-in').value  = '';
+  g('actual-out').value = '';
+  g('comparison-result').style.display = 'none';
+}
+
+// ── Estimated vs Actual ───────────────────────────────────────
+function compareActual() {
+  if (!currentStoryEst) return;
+  const actualIn  = parseInt(g('actual-in').value)  || 0;
+  const actualOut = parseInt(g('actual-out').value) || 0;
+  if (!actualIn && !actualOut) { g('comparison-result').style.display = 'none'; return; }
+
+  const model   = g('jira-model').value;
+  const p       = PRICES[model];
+  const actCost = ((actualIn / 1e6) * p.in) + ((actualOut / 1e6) * p.out);
+  const estCost = currentStoryEst.total;
+  const diff    = ((actCost - estCost) / estCost) * 100;
+  const absDiff = Math.abs(diff).toFixed(1);
+
+  g('comp-est').textContent    = fmtCost(estCost);
+  g('comp-actual').textContent = fmtCost(actCost);
+  g('variance-value').textContent = (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%';
+
+  const tag = g('variance-tag');
+  const bar = g('variance-bar');
+  if (Math.abs(diff) <= 15) {
+    tag.textContent = 'On target';
+    tag.className = 'variance-tag variance-good';
+    bar.style.background = 'var(--green-50)';
+    bar.style.borderColor = 'var(--green-100)';
+  } else if (Math.abs(diff) <= 35) {
+    tag.textContent = diff > 0 ? 'Slightly over' : 'Under estimate';
+    tag.className = 'variance-tag variance-warn';
+    bar.style.background = 'var(--amber-50)';
+    bar.style.borderColor = 'var(--amber-600)';
+  } else {
+    tag.textContent = diff > 0 ? 'Over estimate' : 'Well under';
+    tag.className = 'variance-tag variance-over';
+    bar.style.background = 'var(--red-50)';
+    bar.style.borderColor = 'var(--red-600)';
+  }
+
+  g('comparison-result').style.display = 'block';
+
+  // Add to history
+  const existing = jiraHistory.find(h => h.id === currentStoryEst.id);
+  if (existing) {
+    existing.actual = fmtCost(actCost);
+    existing.variance = (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%';
+    existing.tag = tag.textContent;
+  } else {
+    jiraHistory.push({
+      id: currentStoryEst.id,
+      est: fmtCost(estCost),
+      actual: fmtCost(actCost),
+      variance: (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%',
+      tag: tag.textContent
+    });
+  }
+  renderJiraHistory();
+}
+
+function renderJiraHistory() {
+  if (!jiraHistory.length) return;
+  g('jira-history-card').style.display = 'block';
+  g('jira-history-body').innerHTML = jiraHistory.map(h => `
+    <tr>
+      <td style="font-weight:500">${escHtml(h.id)}</td>
+      <td class="muted">${h.est}</td>
+      <td class="accent">${h.actual}</td>
+      <td><span class="variance-tag ${h.tag === 'On target' ? 'variance-good' : h.tag.includes('over') || h.tag.includes('Over') ? 'variance-over' : 'variance-warn'}">${escHtml(h.variance)} ${escHtml(h.tag)}</span></td>
+    </tr>
+  `).join('');
+}
+
+function sendJiraToCalculator() {
+  if (!window._jiraStoryData) return;
+  const { id, descText } = window._jiraStoryData;
+  g('jira-id').value    = id;
+  g('sys').value        = estimateTokens(descText) + 500;
+  g('model').value      = g('jira-model').value;
+  g('runs').value       = g('jira-runs').value;
+  calc();
+  showPage('calc', null);
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-item')[1].classList.add('active');
+}
+
+// ── Init: check for OAuth callback and restore session ────────
+document.addEventListener('DOMContentLoaded', () => {
+  calc();
+  buildQnA();
+  restoreJiraSession();
+  handleOAuthCallback();
+});

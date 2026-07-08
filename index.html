@@ -36,6 +36,11 @@
           <i class="ti ti-calculator" aria-hidden="true"></i>
           <span>Story calculator</span>
         </button>
+        <button class="nav-item" onclick="showPage('jira', this)">
+          <i class="ti ti-brand-jira" aria-hidden="true"></i>
+          <span>Jira integration</span>
+          <span class="nav-pill new-pill">New</span>
+        </button>
         <button class="nav-item" onclick="showPage('brd', this)">
           <i class="ti ti-file-text" aria-hidden="true"></i>
           <span>BRD analyser</span>
@@ -351,6 +356,173 @@
               <button class="add-btn" onclick="addToSprint()">
                 <i class="ti ti-plus" aria-hidden="true"></i> Add to sprint tracker
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page: Jira Integration -->
+      <div id="page-jira" class="page">
+        <div class="page-header hero-header">
+          <div class="hero-badge blue-badge"><i class="ti ti-brand-jira" aria-hidden="true"></i> Jira OAuth</div>
+          <h1>Jira integration</h1>
+          <p class="page-sub">Connect CostIQ to your Jira account. Fetch any story by ID — title, description, and acceptance criteria auto-filled instantly. Compare estimated vs actual cost after implementation.</p>
+        </div>
+
+        <!-- Not connected state -->
+        <div id="jira-connect-section">
+          <div class="jira-connect-card">
+            <div class="jira-connect-icon"><i class="ti ti-brand-jira" aria-hidden="true"></i></div>
+            <div class="jira-connect-title">Connect to Jira</div>
+            <div class="jira-connect-desc">Click the button below to securely log in with your Atlassian account. CostIQ will only read story data — it cannot create, edit, or delete anything in Jira.</div>
+            <div class="jira-scopes">
+              <div class="scope-item"><i class="ti ti-check" aria-hidden="true"></i> Read Jira issue data</div>
+              <div class="scope-item"><i class="ti ti-check" aria-hidden="true"></i> Read user profiles</div>
+              <div class="scope-item"><i class="ti ti-lock" aria-hidden="true"></i> Cannot write or modify anything</div>
+            </div>
+            <button class="jira-connect-btn" onclick="connectJira()">
+              <i class="ti ti-brand-jira" aria-hidden="true"></i> Connect with Atlassian
+            </button>
+            <div class="jira-connect-note">You will be redirected to Atlassian's login page. After authorising, you will return to CostIQ automatically.</div>
+          </div>
+        </div>
+
+        <!-- Connected state -->
+        <div id="jira-connected-section" style="display:none">
+          <div class="jira-status-bar">
+            <div class="jira-status-left">
+              <div class="jira-status-dot"></div>
+              <div>
+                <div class="jira-status-label">Connected to Jira</div>
+                <div class="jira-status-site" id="jira-site-name">—</div>
+              </div>
+            </div>
+            <button class="disconnect-btn" onclick="disconnectJira()"><i class="ti ti-unlink" aria-hidden="true"></i> Disconnect</button>
+          </div>
+
+          <div class="two-col">
+            <div class="col-left">
+              <div class="card">
+                <div class="card-title"><i class="ti ti-search" aria-hidden="true"></i> Fetch a Jira story</div>
+                <div class="field">
+                  <label class="field-label" for="jira-story-id">Jira story ID</label>
+                  <div class="jira-fetch-row">
+                    <input type="text" id="jira-story-id" placeholder="e.g. ABTCB-131" style="flex:1">
+                    <button class="fetch-btn" onclick="fetchJiraStory()" id="fetch-btn">
+                      <i class="ti ti-download" aria-hidden="true"></i> Fetch
+                    </button>
+                  </div>
+                </div>
+                <div id="jira-fetch-error" class="jira-error" style="display:none"></div>
+                <div id="jira-fetch-loading" class="jira-loading" style="display:none">
+                  <div class="loading-spinner"></div> Fetching story from Jira...
+                </div>
+              </div>
+
+              <div class="card" id="jira-story-card" style="display:none">
+                <div class="card-title"><i class="ti ti-ticket" aria-hidden="true"></i> Story details <span class="story-id-badge" id="jira-story-badge"></span></div>
+                <div class="jira-story-field"><div class="jsf-label">Title</div><div class="jsf-val" id="jira-story-title">—</div></div>
+                <div class="jira-story-field"><div class="jsf-label">Status</div><div class="jsf-val" id="jira-story-status">—</div></div>
+                <div class="jira-story-field"><div class="jsf-label">Story points</div><div class="jsf-val" id="jira-story-points">—</div></div>
+                <div class="jira-story-field"><div class="jsf-label">Assignee</div><div class="jsf-val" id="jira-story-assignee">—</div></div>
+                <div class="jira-story-field"><div class="jsf-label">Description</div><div class="jsf-val desc-val" id="jira-story-desc">—</div></div>
+                <div class="jira-story-field" id="jira-ac-field" style="display:none"><div class="jsf-label">Acceptance criteria</div><div class="jsf-val desc-val" id="jira-story-ac">—</div></div>
+
+                <div class="field" style="margin-top:1rem">
+                  <label class="field-label" for="jira-model">Claude model for estimation</label>
+                  <select id="jira-model" onchange="estimateJiraCost()">
+                    <option value="haiku">Haiku 4.5 — $1 / $5 per 1M</option>
+                    <option value="sonnet" selected>Sonnet 4.6 — $3 / $15 per 1M</option>
+                    <option value="opus">Opus 4.8 — $5 / $25 per 1M</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="field-label" for="jira-runs">Implementation runs</label>
+                  <div class="input-row">
+                    <input type="number" id="jira-runs" value="2" min="1" max="10" oninput="estimateJiraCost()">
+                    <span class="input-unit">runs</span>
+                  </div>
+                </div>
+                <button class="add-btn" style="margin-top:0.5rem" onclick="sendJiraToCalculator()">
+                  <i class="ti ti-calculator" aria-hidden="true"></i> Open in story calculator
+                </button>
+              </div>
+            </div>
+
+            <div class="col-right">
+              <div id="jira-estimate-empty" class="card empty-card">
+                <div class="empty-card-icon"><i class="ti ti-calculator" aria-hidden="true"></i></div>
+                <div class="empty-card-title">No story fetched yet</div>
+                <div class="empty-card-sub">Enter a Jira story ID on the left and click Fetch to see the cost estimate.</div>
+              </div>
+
+              <div id="jira-estimate-card" style="display:none">
+                <div class="card result-card">
+                  <div class="result-header">
+                    <div class="result-label" id="jira-est-label">Estimated cost</div>
+                    <div class="result-amount" id="jira-est-cost">$0.000</div>
+                    <div class="result-sub">to implement this story</div>
+                  </div>
+                  <div class="metrics-grid">
+                    <div class="metric"><div class="metric-label">Story tokens</div><div class="metric-val" id="jira-story-tokens">—</div></div>
+                    <div class="metric"><div class="metric-label">Est. output tokens</div><div class="metric-val" id="jira-output-tokens">—</div></div>
+                    <div class="metric blue"><div class="metric-label">Input cost</div><div class="metric-val" id="jira-in-cost">—</div></div>
+                    <div class="metric green"><div class="metric-label">Output cost</div><div class="metric-val" id="jira-out-cost">—</div></div>
+                  </div>
+                  <div class="breakdown-box" id="jira-breakdown"></div>
+                </div>
+
+                <!-- Actual vs Estimated comparison -->
+                <div class="card">
+                  <div class="card-title"><i class="ti ti-chart-bar" aria-hidden="true"></i> Estimated vs Actual (post-implementation)</div>
+                  <div class="actual-desc">After implementing this story, enter the actual tokens from Claude Code's terminal output to compare.</div>
+                  <div class="actual-grid">
+                    <div class="field">
+                      <label class="field-label" for="actual-in">Actual input tokens</label>
+                      <div class="input-row">
+                        <input type="number" id="actual-in" placeholder="e.g. 31450" oninput="compareActual()">
+                        <span class="input-unit">tokens</span>
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="actual-out">Actual output tokens</label>
+                      <div class="input-row">
+                        <input type="number" id="actual-out" placeholder="e.g. 7820" oninput="compareActual()">
+                        <span class="input-unit">tokens</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="comparison-result" style="display:none">
+                    <div class="comparison-grid">
+                      <div class="comp-item">
+                        <div class="comp-label">Estimated cost</div>
+                        <div class="comp-val" id="comp-est">—</div>
+                      </div>
+                      <div class="comp-arrow"><i class="ti ti-arrows-right-left" aria-hidden="true"></i></div>
+                      <div class="comp-item">
+                        <div class="comp-label">Actual cost</div>
+                        <div class="comp-val" id="comp-actual">—</div>
+                      </div>
+                    </div>
+                    <div class="variance-bar" id="variance-bar">
+                      <div class="variance-label">Variance</div>
+                      <div class="variance-value" id="variance-value">—</div>
+                      <div class="variance-tag" id="variance-tag">—</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- History -->
+                <div class="card" id="jira-history-card" style="display:none">
+                  <div class="card-title"><i class="ti ti-history" aria-hidden="true"></i> Story history</div>
+                  <div class="table-wrap">
+                    <table class="data-table">
+                      <thead><tr><th>Story ID</th><th>Estimated</th><th>Actual</th><th>Variance</th></tr></thead>
+                      <tbody id="jira-history-body"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
